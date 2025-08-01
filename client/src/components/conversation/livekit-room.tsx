@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { useToast } from "../../hooks/use-toast";
-import { Square, Mic, MicOff, MessageCircle, Phone, PhoneOff, Settings, Users, Clock } from "lucide-react";
+import { Square, Mic, MicOff, MessageCircle, Phone, PhoneOff, Settings, Users, Clock, Video, VideoOff } from "lucide-react";
 import { VideoRecording } from "./video-recording";
 import { QuestionTimer } from "./question-timer";
 import { useQuestionSession } from "../../hooks/use-question-session";
@@ -59,6 +59,9 @@ export function LiveKitRoom({ roomData, onEnd }: LiveKitRoomProps) {
   const audioContextRef = useRef<AudioContext | null>(null);
   const questionTimerRef = useRef<NodeJS.Timeout>();
   const { toast } = useToast();
+  const [isVideoEnabled, setIsVideoEnabled] = useState(false);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [videoTrack, setVideoTrack] = useState<MediaStreamTrack | null>(null);
 
   // Question session management
   const {
@@ -141,12 +144,13 @@ export function LiveKitRoom({ roomData, onEnd }: LiveKitRoomProps) {
       console.log("🔗 Connecting to LiveKit room...");
       
       // Request microphone access
-      const stream = await navigator.mediaDevices.getUserMedia({ 
+      const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
           autoGainControl: true,
-        } 
+        },
+        video: isVideoEnabled ? { width: 1280, height: 720 } : false,
       });
       
       console.log("✅ Microphone access granted");
@@ -240,6 +244,15 @@ export function LiveKitRoom({ roomData, onEnd }: LiveKitRoomProps) {
         updateAudioLevel();
       }
 
+      if (isVideoEnabled && stream.getVideoTracks().length > 0) {
+        const track = stream.getVideoTracks()[0];
+        setVideoTrack(track);
+        if (videoRef.current) {
+          videoRef.current.srcObject = new MediaStream([track]);
+        }
+        await room.localParticipant?.publishTrack(track);
+      }
+
       setIsConnected(true);
       hasConnectedRef.current = true;
       
@@ -278,6 +291,42 @@ export function LiveKitRoom({ roomData, onEnd }: LiveKitRoomProps) {
       });
     }
   };
+
+  // Handle toggling video on/off
+  const toggleVideo = async () => {
+    if (!isVideoEnabled) {
+      // Enable video
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } });
+        const track = stream.getVideoTracks()[0];
+        setVideoTrack(track);
+        if (videoRef.current) {
+          videoRef.current.srcObject = new MediaStream([track]);
+        }
+        await room.localParticipant?.publishTrack(track);
+        setIsVideoEnabled(true);
+      } catch (err) {
+        setIsVideoEnabled(false);
+      }
+    } else {
+      // Disable video
+      if (videoTrack) {
+        await room.localParticipant?.unpublishTrack(videoTrack);
+        videoTrack.stop();
+        setVideoTrack(null);
+      }
+      setIsVideoEnabled(false);
+    }
+  };
+
+  // Cleanup video track on disconnect or toggle off
+  useEffect(() => {
+    return () => {
+      if (videoTrack) {
+        videoTrack.stop();
+      }
+    };
+  }, [videoTrack]);
 
   const formatTime = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
@@ -342,7 +391,7 @@ export function LiveKitRoom({ roomData, onEnd }: LiveKitRoomProps) {
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2">
-                <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse" />
+                  <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse" />
                 <span className="text-white font-medium">AI Interview Session</span>
               </div>
               <Badge variant="outline" className="bg-gray-700 text-gray-200 border-gray-600">
@@ -355,18 +404,44 @@ export function LiveKitRoom({ roomData, onEnd }: LiveKitRoomProps) {
                 {isMicMuted ? <MicOff className="w-3 h-3 mr-1" /> : <Mic className="w-3 h-3 mr-1" />}
                 {isMicMuted ? "Muted" : "Active"}
               </Badge>
+              <Button
+                onClick={() => {
+                  const sessionStats = getSessionStats();
+                  console.log('📊 Session Statistics:', sessionStats);
+                  endSession();
+                  onEnd();
+                }}
+                variant="destructive"
+                size="sm"
+              >
+                <PhoneOff className="w-4 h-4 mr-2" />
+                End Call
+              </Button>
             </div>
           </div>
-        </div>
+                </div>
 
         {/* Main Content */}
         <div className="flex-1 flex items-center justify-center p-8">
           <div className="w-full max-w-6xl">
-            {/* Single Video Card with AI Avatar and User Camera */}
-            <div className="bg-gray-700 rounded-lg border border-gray-600 overflow-hidden">
-              {/* Video Areas Side by Side */}
-              <div className="grid grid-cols-2">
-                {/* AI Interviewer Avatar */}
+            {/* Video Cards Container */}
+            <div className="grid grid-cols-2 gap-6 mb-6">
+              {/* AI Interviewer Video Card */}
+              <div className="bg-gray-700 rounded-lg border border-gray-600 overflow-hidden">
+                {/* Question Heading */}
+                {currentQuestion && (
+                  <div className="bg-blue-600 px-4 py-3 border-b border-blue-500">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-white font-semibold text-lg">Current Question</h3>
+                      <Badge variant="outline" className="bg-blue-700 text-blue-100 border-blue-500">
+                    {Math.floor(questionTimer / 60)}:{(questionTimer % 60).toString().padStart(2, '0')}
+                  </Badge>
+                </div>
+                    <p className="text-blue-100 text-sm mt-1">{currentQuestion}</p>
+                  </div>
+                )}
+                
+                {/* AI Video Area */}
                 <div className="aspect-video bg-gray-800 flex items-center justify-center relative">
                   <div className="text-center space-y-4">
                     <div className="w-32 h-32 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center mx-auto shadow-2xl">
@@ -384,7 +459,7 @@ export function LiveKitRoom({ roomData, onEnd }: LiveKitRoomProps) {
                       <div className="w-2 h-8 bg-blue-500 rounded-full animate-pulse" style={{ animationDelay: '0.3s' }} />
                       <div className="w-2 h-8 bg-blue-500 rounded-full animate-pulse" style={{ animationDelay: '0.4s' }} />
                     </div>
-                  </div>
+                </div>
                   
                   {/* Connection Status */}
                   <div className="absolute top-4 left-4">
@@ -394,21 +469,24 @@ export function LiveKitRoom({ roomData, onEnd }: LiveKitRoomProps) {
                     </Badge>
                   </div>
                 </div>
+              </div>
 
-                {/* User Camera */}
+              {/* User Video Card */}
+              <div className="bg-gray-700 rounded-lg border border-gray-600 overflow-hidden">
+                {/* User Video Area */}
                 <div className="aspect-video bg-gray-800 flex items-center justify-center relative">
-                  <div className="w-full h-full bg-gray-900 rounded-lg flex items-center justify-center">
-                    <div className="text-center space-y-4">
-                      <div className="w-16 h-16 bg-gray-700 rounded-full flex items-center justify-center mx-auto">
-                        <Mic className="w-8 h-8 text-gray-400" />
-                      </div>
-                      <div className="space-y-2">
-                        <h2 className="text-lg font-semibold text-white">Your Camera</h2>
-                        <p className="text-gray-400 text-sm">Video feed will appear here</p>
-                      </div>
+                  {isVideoEnabled && videoTrack ? (
+                    <video
+                      ref={videoRef}
+                      autoPlay
+                      muted
+                      className="rounded-lg w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-32 h-32 bg-gradient-to-br from-green-500 to-teal-600 rounded-full flex items-center justify-center mx-auto shadow-2xl">
+                      <Mic className="w-16 h-16 text-white" />
                     </div>
-                  </div>
-                  
+                  )}
                   {/* Mic Status */}
                   <div className="absolute top-4 left-4">
                     <Badge className={isMicMuted ? "bg-red-600" : "bg-green-600"}>
@@ -417,79 +495,48 @@ export function LiveKitRoom({ roomData, onEnd }: LiveKitRoomProps) {
                     </Badge>
                   </div>
                 </div>
-              </div>
-
-              {/* Current Question Section */}
-              {currentQuestion && (
-                <div className="bg-blue-600 px-4 py-3 border-t border-blue-500">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <h3 className="text-white font-semibold text-lg mb-1">Current Question</h3>
-                      <p className="text-blue-100 text-sm leading-relaxed">{currentQuestion}</p>
+                
+                {/* Controls Under User Video */}
+                <div className="p-4 bg-gray-700 border-t border-gray-600">
+                  <div className="space-y-4">
+                    {/* Audio Level */}
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-300">Audio Level</span>
+                        <span className="text-gray-400">{Math.round(audioLevel)}%</span>
+                      </div>
+                      <div className="w-full bg-gray-600 rounded-full h-2">
+                        <div
+                          className="bg-green-500 h-2 rounded-full transition-all duration-100"
+                          style={{ width: `${audioLevel}%` }}
+                        />
+                      </div>
                     </div>
-                    <Badge variant="outline" className="bg-blue-700 text-blue-100 border-blue-500 ml-4">
-                      {Math.floor(questionTimer / 60)}:{(questionTimer % 60).toString().padStart(2, '0')}
-                    </Badge>
-                  </div>
-                </div>
-              )}
-
-              {/* Controls Under Video Areas */}
-              <div className="p-4 bg-gray-700 border-t border-gray-600">
-                <div className="space-y-4">
-                  {/* Audio Level */}
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-300">Audio Level</span>
-                      <span className="text-gray-400">{Math.round(audioLevel)}%</span>
+                    {/* Control Buttons */}
+                    <div className="flex space-x-3">
+                      <Button onClick={toggleMic} variant={isMicMuted ? "destructive" : "default"} className="flex-1 h-10">
+                        {isMicMuted ? <MicOff className="w-4 h-4 mr-2" /> : <Mic className="w-4 h-4 mr-2" />}
+                        {isMicMuted ? "Unmute" : "Mute"}
+                      </Button>
+                      <Button onClick={toggleVideo} variant={isVideoEnabled ? "default" : "outline"} className="flex-1 h-10">
+                        {isVideoEnabled ? <Video className="w-4 h-4 mr-2" /> : <VideoOff className="w-4 h-4 mr-2" />}
+                        {isVideoEnabled ? "Disable Video" : "Enable Video"}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="flex-1 h-10 border-gray-600 text-gray-300 hover:bg-gray-600"
+                      >
+                        <Settings className="w-4 h-4 mr-2" />
+                        Settings
+                      </Button>
                     </div>
-                    <div className="w-full bg-gray-600 rounded-full h-2">
-                      <div 
-                        className="bg-green-500 h-2 rounded-full transition-all duration-100"
-                        style={{ width: `${audioLevel}%` }}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Control Buttons */}
-                  <div className="flex space-x-3">
-                    <Button 
-                      onClick={toggleMic} 
-                      variant={isMicMuted ? "destructive" : "default"}
-                      className="flex-1 h-10"
-                    >
-                      {isMicMuted ? <MicOff className="w-4 h-4 mr-2" /> : <Mic className="w-4 h-4 mr-2" />}
-                      {isMicMuted ? "Unmute" : "Mute"}
-                    </Button>
-                    
-                    <Button 
-                      variant="outline"
-                      className="flex-1 h-10 border-gray-600 text-gray-300 hover:bg-gray-600"
-                    >
-                      <Settings className="w-4 h-4 mr-2" />
-                      Settings
-                    </Button>
-
-                    <Button
-                      onClick={() => {
-                        const sessionStats = getSessionStats();
-                        console.log('📊 Session Statistics:', sessionStats);
-                        endSession();
-                        onEnd();
-                      }}
-                      variant="destructive"
-                      className="flex-1 h-10"
-                    >
-                      <PhoneOff className="w-4 h-4 mr-2" />
-                      End Call
-                    </Button>
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Session Info Bar */}
-            <div className="bg-gray-800 rounded-lg p-4 border border-gray-700 mt-6">
+            <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
               <div className="flex items-center justify-between text-sm">
                 <div className="flex items-center space-x-6">
                   <div className="flex items-center space-x-2">
@@ -510,7 +557,7 @@ export function LiveKitRoom({ roomData, onEnd }: LiveKitRoomProps) {
                   <span className="text-gray-200 font-mono">{formatTime(sessionTimer)}</span>
                 </div>
               </div>
-            </div>
+                </div>
           </div>
         </div>
 

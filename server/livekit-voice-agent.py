@@ -89,15 +89,15 @@ def create_llm_plugin():
     if not openrouter_key or openrouter_key == "your_openrouter_api_key_here":
         raise Exception("OPENROUTER_API_KEY is required. Please set it in your .env file.")
     
-    try:
-        print("🔧 Configuring OpenRouter LLM...")
-        return openai.LLM(
-            model="mistralai/mistral-small-3.2-24b-instruct:free",
-            base_url="https://openrouter.ai/api/v1",
-            api_key=openrouter_key,
+        try:
+            print("🔧 Configuring OpenRouter LLM...")
+            return openai.LLM(
+                model="mistralai/mistral-small-3.2-24b-instruct:free",
+                base_url="https://openrouter.ai/api/v1",
+                api_key=openrouter_key,
             timeout=30.0
-        )
-    except Exception as e:
+            )
+        except Exception as e:
         print(f"❌ OpenRouter configuration failed: {e}")
         raise Exception(f"Failed to configure OpenRouter LLM: {e}")
 
@@ -146,7 +146,7 @@ async def entrypoint(ctx: agents.JobContext):
             stt=deepgram.STT(model="nova-3", language="multi"),
             llm=llm_plugin,                            # 👈 enables autopilot
             tts=cartesia.TTS(
-                model="sonic-2",
+            model="sonic-2",
                 voice="b8d5e3c4-9a2f-4e1d-8c7b-6f5a4e3d2c1b",  # Formal voice
                 sample_rate=24000,
                 speed=1.0,
@@ -164,9 +164,9 @@ async def entrypoint(ctx: agents.JobContext):
                 sample_rate=voice_config['sample_rate'],
                 speed=voice_config['speed'],
             ),
-            vad=silero.VAD.load(),
-            #turn_detection=MultilingualModel(),
-        )
+        vad=silero.VAD.load(),
+        #turn_detection=MultilingualModel(),
+    )
 
     # 5️⃣  Connect to room first
     print("🔗 Connecting to room...")
