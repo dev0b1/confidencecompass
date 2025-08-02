@@ -1,7 +1,14 @@
 import OpenAI from 'openai';
 
+// Initialize OpenAI client
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
+});
+
+// Initialize OpenRouter client for fallback
+const openRouterClient = new OpenAI({
+  apiKey: process.env.OPENROUTER_API_KEY,
+  baseURL: 'https://openrouter.ai/api/v1',
 });
 
 interface SpeechMetrics {
@@ -63,7 +70,7 @@ export class SpeechAnalysisService {
       
       return transcription as string;
     } catch (error) {
-      console.error('Error transcribing audio:', error);
+      console.error('Error transcribing audio with OpenAI:', error);
       // Return mock transcript for development
       return "This is a mock transcript for development purposes. In production, this would be the actual transcribed speech from the user's recording.";
     }
@@ -112,7 +119,7 @@ export class SpeechAnalysisService {
   }
 
   /**
-   * Generate AI feedback using GPT-4
+   * Generate AI feedback using OpenAI or OpenRouter fallback
    */
   private static async generateFeedback(
     transcript: string, 
@@ -140,48 +147,94 @@ Please provide:
 
 Focus on practical advice that can be implemented immediately. Be encouraging but honest about areas for improvement.`;
 
-      const completion = await openai.chat.completions.create({
-        model: "gpt-4",
-        messages: [
-          {
-            role: "system",
-            content: "You are an expert speech coach providing constructive feedback. Be encouraging but honest. Focus on actionable advice."
-          },
-          {
-            role: "user",
-            content: prompt
-          }
-        ],
-        max_tokens: 300,
-        temperature: 0.7
-      });
+      // Try OpenAI first
+      try {
+        const completion = await openai.chat.completions.create({
+          model: "gpt-4",
+          messages: [
+            {
+              role: "system",
+              content: "You are an expert speech coach providing constructive feedback. Be encouraging but honest. Focus on actionable advice."
+            },
+            {
+              role: "user",
+              content: prompt
+            }
+          ],
+          max_tokens: 300,
+          temperature: 0.7
+        });
 
-      const response = completion.choices[0]?.message?.content || '';
-      
-      // Parse the response to extract summary and suggestions
-      const lines = response.split('\n').filter(line => line.trim());
-      const summary = lines[0] || "Good effort! Here are some areas for improvement.";
-      const suggestions = lines.slice(1).filter(line => line.trim().length > 0).slice(0, 3);
-      
-      return {
-        summary,
-        suggestions: suggestions.length > 0 ? suggestions : [
-          "Practice speaking more slowly and clearly",
-          "Try to reduce filler words like 'um' and 'like'",
-          "Add more pauses between key points for emphasis"
-        ]
-      };
+        const response = completion.choices[0]?.message?.content || '';
+        return this.parseFeedbackResponse(response);
+      } catch (openaiError) {
+        console.log('OpenAI failed, trying OpenRouter fallback...');
+        
+        // Fallback to OpenRouter with Mistral model
+        if (process.env.OPENROUTER_API_KEY) {
+          try {
+            const completion = await openRouterClient.chat.completions.create({
+              model: "mistralai/mistral-7b-instruct",
+              messages: [
+                {
+                  role: "system",
+                  content: "You are an expert speech coach providing constructive feedback. Be encouraging but honest. Focus on actionable advice."
+                },
+                {
+                  role: "user",
+                  content: prompt
+                }
+              ],
+              max_tokens: 300,
+              temperature: 0.7
+            });
+
+            const response = completion.choices[0]?.message?.content || '';
+            return this.parseFeedbackResponse(response);
+          } catch (openRouterError) {
+            console.error('OpenRouter fallback failed:', openRouterError);
+            return this.getDefaultFeedback();
+          }
+        } else {
+          console.error('OpenAI failed and no OpenRouter API key available');
+          return this.getDefaultFeedback();
+        }
+      }
     } catch (error) {
       console.error('Error generating feedback:', error);
-      // Return default feedback
-      return {
-        summary: "Good effort! Here are some general tips for improvement.",
-        suggestions: [
-          "Practice speaking more slowly and clearly",
-          "Try to reduce filler words like 'um' and 'like'",
-          "Add more pauses between key points for emphasis"
-        ]
-      };
+      return this.getDefaultFeedback();
     }
+  }
+
+  /**
+   * Parse the AI response into structured feedback
+   */
+  private static parseFeedbackResponse(response: string): SpeechFeedback {
+    const lines = response.split('\n').filter(line => line.trim());
+    const summary = lines[0] || "Good effort! Here are some areas for improvement.";
+    const suggestions = lines.slice(1).filter(line => line.trim().length > 0).slice(0, 3);
+    
+    return {
+      summary,
+      suggestions: suggestions.length > 0 ? suggestions : [
+        "Practice speaking more slowly and clearly",
+        "Try to reduce filler words like 'um' and 'like'",
+        "Add more pauses between key points for emphasis"
+      ]
+    };
+  }
+
+  /**
+   * Get default feedback when AI services are unavailable
+   */
+  private static getDefaultFeedback(): SpeechFeedback {
+    return {
+      summary: "Good effort! Here are some general tips for improvement.",
+      suggestions: [
+        "Practice speaking more slowly and clearly",
+        "Try to reduce filler words like 'um' and 'like'",
+        "Add more pauses between key points for emphasis"
+      ]
+    };
   }
 } 
