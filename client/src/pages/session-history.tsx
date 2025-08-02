@@ -1,210 +1,271 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { apiRequest } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
-import { Video, Play, Download, Trash2, Filter } from "lucide-react";
-import { Session } from "@shared/schema";
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
+import { Button } from '../components/ui/button';
+import { Badge } from '../components/ui/badge';
+import { useToast } from '../hooks/use-toast';
+import { History, Play, Calendar, TrendingUp, Clock } from 'lucide-react';
+
+interface Session {
+  id: string;
+  category_id: string;
+  question_id: string;
+  transcript: string;
+  metrics: {
+    fillerWords: number;
+    speechRate: number;
+    pauseDuration: number;
+    confidence: number;
+  };
+  feedback: {
+    summary: string;
+    suggestions: string[];
+  };
+  duration_seconds: number;
+  confidence_score: number;
+  created_at: string;
+  categories?: {
+    name: string;
+    icon: string;
+  };
+  questions?: {
+    question: string;
+  };
+}
+
+// API base URL - points to backend server
+const API_BASE_URL = 'http://localhost:5000';
 
 export default function SessionHistory() {
-  const queryClient = useQueryClient();
+  const [sessions, setSessions] = useState<Session[]>([]);
+  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  const { data: sessions, isLoading } = useQuery<Session[]>({
-    queryKey: ["/api/sessions"],
-    queryFn: async () => {
-      // Mock data for now - replace with actual API call
-      await new Promise(resolve => setTimeout(resolve, 500));
-      return [
-        {
-          id: "1",
-          title: "Behavioral Interview Practice",
-          createdAt: new Date().toISOString(),
-          overallScore: 85,
-          duration: 1800
-        },
-        {
-          id: "2", 
-          title: "Technical Interview Practice",
-          createdAt: new Date(Date.now() - 86400000).toISOString(),
-          overallScore: 72,
-          duration: 2400
-        },
-        {
-          id: "3",
-          title: "General Interview Practice", 
-          createdAt: new Date(Date.now() - 172800000).toISOString(),
-          overallScore: 78,
-          duration: 1500
-        },
-        {
-          id: "4",
-          title: "Leadership Interview Practice",
-          createdAt: new Date(Date.now() - 259200000).toISOString(),
-          overallScore: 91,
-          duration: 2100
-        },
-        {
-          id: "5",
-          title: "Product Manager Interview",
-          createdAt: new Date(Date.now() - 345600000).toISOString(),
-          overallScore: 68,
-          duration: 2700
-        }
-      ];
-    }
-  });
+  useEffect(() => {
+    fetchSessions();
+  }, []);
 
-  const deleteSessionMutation = useMutation({
-    mutationFn: async (sessionId: number) => {
-      await apiRequest("DELETE", `/api/sessions/${sessionId}`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/sessions"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/user/progress"] });
-      toast({
-        title: "Session Deleted",
-        description: "The session has been deleted successfully.",
-      });
-    },
-    onError: () => {
+  const fetchSessions = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/sessions`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const data = await response.json();
+      setSessions(data);
+    } catch (error) {
+      console.error('Error fetching sessions:', error);
       toast({
         title: "Error",
-        description: "Failed to delete session. Please try again.",
+        description: "Failed to fetch session history",
         variant: "destructive",
       });
-    }
-  });
-
-  const handleDeleteSession = (sessionId: number) => {
-    if (confirm("Are you sure you want to delete this session?")) {
-      deleteSessionMutation.mutate(sessionId);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const getScoreColor = (score: number) => {
-    if (score >= 0.8) return "bg-green-100 text-green-800";
-    if (score >= 0.6) return "bg-yellow-100 text-yellow-800";
-    return "bg-red-100 text-red-800";
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   };
 
-  const getGrade = (score: number) => {
-    if (score >= 0.9) return "A+";
-    if (score >= 0.8) return "A";
-    if (score >= 0.7) return "B+";
-    if (score >= 0.6) return "B";
-    if (score >= 0.5) return "C+";
-    return "C";
+  const formatDuration = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  if (isLoading) {
+  const getConfidenceColor = (confidence: number) => {
+    if (confidence >= 0.8) return 'text-green-600 bg-green-100';
+    if (confidence >= 0.6) return 'text-yellow-600 bg-yellow-100';
+    return 'text-red-600 bg-red-100';
+  };
+
+  if (loading) {
     return (
-      <div className="p-6">
-        <div className="animate-pulse space-y-6">
-          <div className="h-8 bg-gray-200 rounded w-1/4"></div>
-          <div className="space-y-4">
-            {[...Array(5)].map((_, i) => (
-              <div key={i} className="h-24 bg-gray-200 rounded-xl"></div>
-            ))}
-          </div>
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading session history...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Session History</h2>
-          <p className="text-gray-600 mt-1">Review your past practice sessions</p>
+          <h1 className="text-3xl font-bold text-gray-900">Session History</h1>
+          <p className="text-gray-600 mt-2">Review your past practice sessions and track your progress</p>
         </div>
-        <Button variant="outline">
-          <Filter className="mr-2 h-4 w-4" />
-          Filter
+        <Button onClick={fetchSessions} variant="outline">
+          <History className="w-4 h-4 mr-2" />
+          Refresh
         </Button>
       </div>
 
+      {/* Stats */}
+      {sessions.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center space-x-2">
+                <History className="w-5 h-5 text-blue-600" />
+                <div>
+                  <p className="text-sm text-gray-600">Total Sessions</p>
+                  <p className="text-2xl font-bold">{sessions.length}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center space-x-2">
+                <TrendingUp className="w-5 h-5 text-green-600" />
+                <div>
+                  <p className="text-sm text-gray-600">Avg Confidence</p>
+                  <p className="text-2xl font-bold">
+                    {Math.round(sessions.reduce((acc, s) => acc + s.confidence_score, 0) / sessions.length * 100)}%
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center space-x-2">
+                <Clock className="w-5 h-5 text-purple-600" />
+                <div>
+                  <p className="text-sm text-gray-600">Total Time</p>
+                  <p className="text-2xl font-bold">
+                    {formatDuration(sessions.reduce((acc, s) => acc + (s.duration_seconds || 0), 0))}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center space-x-2">
+                <Calendar className="w-5 h-5 text-orange-600" />
+                <div>
+                  <p className="text-sm text-gray-600">Last Session</p>
+                  <p className="text-sm font-bold">
+                    {sessions[0] ? formatDate(sessions[0].created_at) : 'Never'}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       {/* Sessions List */}
+      {sessions.length === 0 ? (
       <Card>
+          <CardContent className="p-8 text-center">
+            <History className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">No sessions yet</h3>
+            <p className="text-gray-600 mb-4">Start your first practice session to see your history here</p>
+            <Button onClick={() => window.location.href = '/'}>
+              <Play className="w-4 h-4 mr-2" />
+              Start Practice
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-4">
+          {sessions.map((session) => (
+            <Card key={session.id} className="hover:shadow-lg transition-shadow">
         <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            Recent Sessions
-            <Badge variant="secondary">{sessions?.length || 0} total</Badge>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <span className="text-2xl">{session.categories?.icon || '🎤'}</span>
+                    <div>
+                      <CardTitle className="text-lg">
+                        {session.categories?.name || 'Practice Session'}
           </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {!sessions || sessions.length === 0 ? (
-            <div className="text-center py-12">
-              <Video className="mx-auto h-16 w-16 text-gray-400 mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No sessions yet</h3>
-              <p className="text-gray-600 mb-6">Start your first practice session to begin tracking your progress</p>
-              <Button>Start Practice Session</Button>
+                      <CardDescription>
+                        {session.questions?.question || 'Practice question'}
+                      </CardDescription>
             </div>
-          ) : (
-            <div className="divide-y divide-gray-200">
-              {sessions.map((session) => (
-                <div key={session.id} className="py-6 hover:bg-gray-50 transition-colors rounded-lg px-4 -mx-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-4">
-                      <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                        <Video className="h-6 w-6 text-blue-600" />
                       </div>
-                      <div>
-                        <h4 className="font-medium text-gray-900">{session.title}</h4>
-                        <p className="text-sm text-gray-600">
-                          {new Date(session.createdAt).toLocaleDateString()} • {Math.floor(session.duration / 60)}m {session.duration % 60}s
-                        </p>
-                        <div className="flex items-center space-x-4 mt-2">
-                          <Badge className={getScoreColor(session.eyeContactScore)}>
-                            Eye Contact: {Math.round(session.eyeContactScore * 100)}%
+                  <div className="flex items-center space-x-2">
+                    <Badge variant="outline">
+                      {formatDate(session.created_at)}
                           </Badge>
-                          <Badge className={getScoreColor(session.voiceClarity)}>
-                            Voice: {getGrade(session.voiceClarity)}
-                          </Badge>
-                          <Badge className={getScoreColor(session.overallScore)}>
-                            Overall: {Math.round(session.overallScore * 100)}%
+                    <Badge className={getConfidenceColor(session.confidence_score)}>
+                      {Math.round(session.confidence_score * 100)}% Confidence
                           </Badge>
                         </div>
                       </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Metrics */}
+                <div className="grid grid-cols-4 gap-4">
+                  <div className="text-center">
+                    <div className="text-lg font-bold text-blue-600">
+                      {session.metrics?.fillerWords || 0}
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="text-gray-400 hover:text-gray-600"
-                        title="Play session"
-                      >
-                        <Play className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="text-gray-400 hover:text-gray-600"
-                        title="Download session"
-                      >
-                        <Download className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="text-gray-400 hover:text-red-600"
-                        onClick={() => handleDeleteSession(session.id)}
-                        disabled={deleteSessionMutation.isPending}
-                        title="Delete session"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                    <div className="text-xs text-gray-600">Filler Words</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-lg font-bold text-green-600">
+                      {session.metrics?.speechRate || 0}
                     </div>
+                    <div className="text-xs text-gray-600">Words/Min</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-lg font-bold text-purple-600">
+                      {session.metrics?.pauseDuration || 0}s
+                    </div>
+                    <div className="text-xs text-gray-600">Pause Time</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-lg font-bold text-orange-600">
+                      {formatDuration(session.duration_seconds || 0)}
+                    </div>
+                    <div className="text-xs text-gray-600">Duration</div>
                   </div>
                 </div>
-              ))}
+
+                {/* Transcript Preview */}
+                {session.transcript && (
+                  <div>
+                    <h4 className="font-semibold mb-2">Transcript</h4>
+                    <div className="p-3 bg-gray-50 rounded-lg text-sm max-h-20 overflow-y-auto">
+                      {session.transcript.length > 200 
+                        ? `${session.transcript.substring(0, 200)}...`
+                        : session.transcript
+                      }
+                    </div>
+                  </div>
+                )}
+
+                {/* Feedback Summary */}
+                {session.feedback?.summary && (
+                  <div>
+                    <h4 className="font-semibold mb-2">AI Feedback</h4>
+                    <div className="p-3 bg-blue-50 rounded-lg text-sm">
+                      {session.feedback.summary}
+                    </div>
             </div>
           )}
         </CardContent>
       </Card>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

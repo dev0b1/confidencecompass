@@ -38,7 +38,11 @@ interface SpeechAnalysis {
 // API base URL - points to backend server
 const API_BASE_URL = 'http://localhost:5000';
 
-export default function DashboardSimple() {
+interface DashboardSimpleProps {
+  initialCategory?: string | null;
+}
+
+export default function DashboardSimple({ initialCategory }: DashboardSimpleProps) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -65,12 +69,22 @@ export default function DashboardSimple() {
     fetchCategories();
   }, []);
 
+  useEffect(() => {
+    if (initialCategory && categories.length > 0) {
+      const category = categories.find(cat => cat.id === initialCategory);
+      if (category) {
+        setSelectedCategory(category);
+        fetchQuestions(category.id);
+      }
+    }
+  }, [initialCategory, categories]);
+
   // Fetch questions when category is selected
   useEffect(() => {
-    if (selectedCategory) {
+    if (selectedCategory && !initialCategory) {
       fetchQuestions(selectedCategory.id);
     }
-  }, [selectedCategory]);
+  }, [selectedCategory, initialCategory]);
 
   // Handle countdown timer
   useEffect(() => {
