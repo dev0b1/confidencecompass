@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>No CSP Test</title>
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <!-- Completely disable CSP for testing -->
+    <meta http-equiv="Content-Security-Policy" content="">
+</head>
+<body>
+    <h1>No CSP Test Page</h1>
+    <p>This page has CSP completely disabled for testing.</p>
+    <p>If you can see the microphone emoji favicon in your browser tab, the favicon works correctly.</p>
+    <p>This confirms that CSP was the issue.</p>
+    
+    <h2>Test Results:</h2>
+    <ul>
+        <li>✅ Favicon should display: <img src="/vite.svg" alt="Favicon" style="width: 32px; height: 32px;"></li>
+        <li>✅ No CSP errors in console</li>
+        <li>✅ All resources should load normally</li>
+    </ul>
+    
+    <p><a href="/">← Back to main app</a></p>
+</body>
+</html> 

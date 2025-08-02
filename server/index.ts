@@ -47,10 +47,9 @@ app.use(cors(corsOptions));
 
 // Content Security Policy middleware
 app.use((req, res, next) => {
-  // Set CSP headers for GitHub Codespaces compatibility
-  res.setHeader(
-    'Content-Security-Policy',
-    [
+  // Only set CSP headers in production
+  if (process.env.NODE_ENV === 'production') {
+    const cspDirectives = [
       "default-src 'self'",
       "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
       "style-src 'self' 'unsafe-inline'",
@@ -63,14 +62,16 @@ app.use((req, res, next) => {
       "form-action 'self'",
       "frame-ancestors 'self'",
       "upgrade-insecure-requests"
-    ].join('; ')
-  );
-  
-  // Additional security headers
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('X-Frame-Options', 'DENY');
-  res.setHeader('X-XSS-Protection', '1; mode=block');
-  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    ];
+
+    res.setHeader('Content-Security-Policy', cspDirectives.join('; '));
+    
+    // Additional security headers for production
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('X-XSS-Protection', '1; mode=block');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  }
   
   next();
 });
@@ -118,6 +119,16 @@ app.get('/api/health', (req, res) => {
     timestamp: new Date().toISOString()
   });
 });
+
+// Serve favicon directly
+app.get('/favicon.ico', (req, res) => {
+  res.redirect('/vite.svg');
+});
+
+// Serve static files (for development)
+app.use('/vite.svg', express.static(path.join(process.cwd(), 'client', 'public', 'vite.svg')));
+app.use('/test-favicon.html', express.static(path.join(process.cwd(), 'client', 'public', 'test-favicon.html')));
+app.use('/no-csp.html', express.static(path.join(process.cwd(), 'client', 'public', 'no-csp.html')));
 
 // Get practice categories
 app.get('/api/categories', (req, res) => {

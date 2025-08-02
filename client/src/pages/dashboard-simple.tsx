@@ -4,7 +4,7 @@ import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Progress } from '../components/ui/progress';
 import { useToast } from '../hooks/use-toast';
-import { Mic, Play, Pause, Square, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
+import { Mic, Play, Pause, Square, Loader2, CheckCircle, AlertCircle, Video, VideoOff } from 'lucide-react';
 
 interface Category {
   id: string;
@@ -35,20 +35,28 @@ interface SpeechAnalysis {
   };
 }
 
+// API base URL - points to backend server
+const API_BASE_URL = 'http://localhost:5000';
+
 export default function DashboardSimple() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [selectedQuestion, setSelectedQuestion] = useState<Question | null>(null);
   const [isRecording, setIsRecording] = useState(false);
+  const [isVideoRecording, setIsVideoRecording] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [countdown, setCountdown] = useState<number | null>(null);
   const [recordingTime, setRecordingTime] = useState(0);
   const [analysis, setAnalysis] = useState<SpeechAnalysis | null>(null);
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
+  const [videoRecorder, setVideoRecorder] = useState<MediaRecorder | null>(null);
   const [audioChunks, setAudioChunks] = useState<Blob[]>([]);
+  const [videoChunks, setVideoChunks] = useState<Blob[]>([]);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
+  const [videoStream, setVideoStream] = useState<MediaStream | null>(null);
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
   
   const { toast } = useToast();
 
@@ -92,14 +100,17 @@ export default function DashboardSimple() {
 
   const fetchCategories = async () => {
     try {
-      const response = await fetch('/api/categories');
+      const response = await fetch(`${API_BASE_URL}/api/categories`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
       const data = await response.json();
       setCategories(data);
     } catch (error) {
       console.error('Error fetching categories:', error);
       toast({
         title: "Error",
-        description: "Failed to load practice categories",
+        description: "Failed to fetch categories. Please try again.",
         variant: "destructive",
       });
     }
@@ -107,7 +118,10 @@ export default function DashboardSimple() {
 
   const fetchQuestions = async (categoryId: string) => {
     try {
-      const response = await fetch(`/api/categories/${categoryId}/questions`);
+      const response = await fetch(`${API_BASE_URL}/api/categories/${categoryId}/questions`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
       const data = await response.json();
       setQuestions(data);
     } catch (error) {
@@ -151,47 +165,94 @@ export default function DashboardSimple() {
 
   const startRecording = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream);
-      const chunks: Blob[] = [];
+      // Get both audio and video streams
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: true, 
+        video: { 
+          width: { ideal: 1280 }, 
+          height: { ideal: 720 },
+          facingMode: 'user'
+        } 
+      });
       
-      recorder.ondataavailable = (event) => {
-        chunks.push(event.data);
+      // Set video stream for display
+      setVideoStream(stream);
+      
+      // Create audio recorder
+      const audioRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+      const audioChunks: Blob[] = [];
+      
+      audioRecorder.ondataavailable = (event) => {
+        audioChunks.push(event.data);
       };
       
-      recorder.onstop = () => {
-        const audioBlob = new Blob(chunks, { type: 'audio/wav' });
-        setAudioChunks(chunks);
+      audioRecorder.onstop = () => {
+        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+        setAudioChunks(audioChunks);
         analyzeSpeech(audioBlob);
       };
       
-      recorder.start();
-      setMediaRecorder(recorder);
+      // Create video recorder
+      const videoRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+      const videoChunks: Blob[] = [];
+      
+      videoRecorder.ondataavailable = (event) => {
+        videoChunks.push(event.data);
+      };
+      
+      videoRecorder.onstop = () => {
+        const videoBlob = new Blob(videoChunks, { type: 'video/webm' });
+        setVideoChunks(videoChunks);
+        const videoUrl = URL.createObjectURL(videoBlob);
+        setVideoUrl(videoUrl);
+      };
+      
+      // Start both recorders
+      audioRecorder.start();
+      videoRecorder.start();
+      
+      setMediaRecorder(audioRecorder);
+      setVideoRecorder(videoRecorder);
       setIsRecording(true);
+      setIsVideoRecording(true);
       setRecordingTime(0);
       setAnalysis(null);
+      setVideoUrl(null);
       
       toast({
         title: "Recording Started",
-        description: "Speak clearly into your microphone",
+        description: "Speak clearly and look at the camera",
       });
     } catch (error) {
       console.error('Error starting recording:', error);
       toast({
         title: "Error",
-        description: "Failed to start recording. Please check microphone permissions.",
+        description: "Failed to start recording. Please check camera and microphone permissions.",
         variant: "destructive",
       });
     }
   };
 
   const stopRecording = () => {
-    if (mediaRecorder && isRecording) {
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
       mediaRecorder.stop();
-      mediaRecorder.stream.getTracks().forEach(track => track.stop());
-      setIsRecording(false);
-      setCountdown(null);
     }
+    if (videoRecorder && videoRecorder.state !== 'inactive') {
+      videoRecorder.stop();
+    }
+    if (videoStream) {
+      videoStream.getTracks().forEach(track => track.stop());
+      setVideoStream(null);
+    }
+    
+    setIsRecording(false);
+    setIsVideoRecording(false);
+    setCountdown(null);
+    
+    toast({
+      title: "Recording Stopped",
+      description: "Analyzing your speech...",
+    });
   };
 
   const analyzeSpeech = async (audioBlob: Blob) => {
@@ -202,7 +263,7 @@ export default function DashboardSimple() {
       const arrayBuffer = await audioBlob.arrayBuffer();
       const base64Audio = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
       
-      const response = await fetch('/api/analyze-speech', {
+      const response = await fetch(`${API_BASE_URL}/api/analyze-speech`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -353,10 +414,45 @@ export default function DashboardSimple() {
               <CardHeader>
                 <CardTitle>Practice Session</CardTitle>
                 <CardDescription>
-                  Listen to the question, then record your response
+                  Listen to the question, then record your response with video
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
+                {/* Video Preview/Recording */}
+                <div className="relative bg-gray-900 rounded-lg overflow-hidden aspect-video">
+                  {videoStream && isVideoRecording ? (
+                    <video
+                      ref={(video) => {
+                        if (video) video.srcObject = videoStream;
+                      }}
+                      autoPlay
+                      muted
+                      className="w-full h-full object-cover"
+                    />
+                  ) : videoUrl ? (
+                    <video
+                      src={videoUrl}
+                      controls
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex items-center justify-center h-full text-gray-400">
+                      <div className="text-center">
+                        <Video className="w-12 h-12 mx-auto mb-2" />
+                        <p>Camera preview will appear here</p>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Recording indicator */}
+                  {isVideoRecording && (
+                    <div className="absolute top-2 right-2 flex items-center space-x-1 bg-red-600 text-white px-2 py-1 rounded-full text-xs">
+                      <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+                      <span>REC</span>
+                    </div>
+                  )}
+                </div>
+
                 {/* Audio Playback */}
                 <div className="flex items-center space-x-2">
                   <Button
@@ -392,7 +488,7 @@ export default function DashboardSimple() {
                       size="lg"
                       className="bg-red-600 hover:bg-red-700"
                     >
-                      <Mic className="w-5 h-5 mr-2" />
+                      <Video className="w-5 h-5 mr-2" />
                       Start Recording
                     </Button>
                   ) : (
