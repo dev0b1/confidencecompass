@@ -1,151 +1,239 @@
-# Confidence Compass
+# Confidence Compass - AI Speech Practice App
 
-A comprehensive platform for improving public speaking and communication skills through AI-powered practice sessions and real-time feedback.
+A full-stack AI-powered public speaking and interview practice web application that helps users build speaking confidence through structured practice sessions and AI feedback.
 
-## Features
+## 🚀 Features
 
-- Real-time voice analysis and feedback
-- Advanced eye tracking for better presentation skills
-- AI-powered conversation practice
-- Comprehensive metrics and progress tracking
-- Mobile-responsive design
+### Core Functionality
+- **Practice Categories**: Interview, Elevator Pitch, Presentation Skills, Networking
+- **Audio Prompts**: Pre-recorded questions for each practice scenario
+- **Voice Recording**: Built-in microphone recording with countdown timer
+- **Speech Analysis**: AI-powered analysis using OpenAI Whisper and GPT-4
+- **Real-time Feedback**: Instant feedback on speech patterns and improvement suggestions
 
-## Tech Stack
+### Analysis Metrics
+- **Filler Words Count**: Detects "um", "like", "you know", etc.
+- **Speech Rate**: Words per minute calculation
+- **Pause Duration**: Dead air detection and measurement
+- **Confidence Score**: Overall speaking confidence based on multiple factors
 
-- **Frontend**: React, TypeScript, TailwindCSS
-- **Backend**: Node.js, Python (for voice analysis)
-- **AI/ML**: Deepgram, MediaPipe
-- **Real-time Communication**: LiveKit
-- **Storage**: In-Memory (No database required for development)
+### AI Feedback
+- **Personalized Suggestions**: GPT-4 powered feedback specific to each practice session
+- **Actionable Advice**: Practical tips for immediate improvement
+- **Progress Tracking**: Session history and performance metrics
 
-## 📚 Documentation
+## 🛠️ Tech Stack
 
-- **[SETUP.md](SETUP.md)** - Complete setup guide (no database required)
-- **[SERVER_SETUP.md](SERVER_SETUP.md)** - Detailed server-side setup and dependencies
-- **[LIVEKIT_SETUP.md](LIVEKIT_SETUP.md)** - LiveKit configuration and troubleshooting
-- **[FRONTEND_ARCHITECTURE.md](FRONTEND_ARCHITECTURE.md)** - Frontend architecture and components
+### Frontend
+- **React 18** with TypeScript
+- **Vite** for fast development and building
+- **Tailwind CSS** for styling
+- **Radix UI** for accessible components
+- **React Query** for data fetching
+
+### Backend
+- **Node.js** with Express
+- **TypeScript** for type safety
+- **OpenAI API** for speech transcription and analysis
+- **ESBuild** for production builds
+
+### Development
+- **TypeScript** for type safety
+- **ESLint** for code quality
+- **Prettier** for code formatting
+
+## 📁 Project Structure
+
+```
+confidencecompass/
+├── client/                 # Frontend React application
+│   ├── src/
+│   │   ├── components/     # Reusable UI components
+│   │   ├── pages/         # Page components
+│   │   ├── hooks/         # Custom React hooks
+│   │   └── lib/           # Utility functions
+├── server/                # Backend Express API
+│   ├── index.ts           # Main server file
+│   └── speech-analysis.ts # Speech analysis service
+├── shared/                # Shared types and schemas
+└── package.json           # Project dependencies
+```
 
 ## 🚀 Quick Start
 
 ### Prerequisites
-
-- Node.js (v18 or higher)
-- Python 3.11+
+- Node.js 18+ 
 - npm or yarn
+- OpenAI API key
 
 ### Installation
 
-#### Option 1: Automated Setup (Recommended)
-
-**Windows:**
-```bash
-setup-server.bat
-```
-
-**macOS/Linux:**
-```bash
-chmod +x setup-server.sh
-./setup-server.sh
-```
-
-#### Option 2: Manual Setup
-
-1. Clone the repository:
+1. **Clone the repository**
    ```bash
-   git clone [repository-url]
-   cd confidencecompass1-main
+   git clone <repository-url>
+   cd confidencecompass
    ```
 
-2. **Easy Setup** (Recommended):
+2. **Install dependencies**
    ```bash
-   npm run start-dev
-   ```
-   This will automatically:
-   - Install dependencies if needed
-   - Create a `.env` file with placeholder values
-   - Start the development server
-
-3. **Manual Setup**:
-   ```bash
-   # Install dependencies
    npm install
-   pip install -r requirements.txt
-   
-   # Create .env file (see SETUP.md for details)
-   # Start the server
-   npm run dev
    ```
 
-4. Open your browser to `http://localhost:5000`
+3. **Set up environment variables**
+   ```bash
+   cp .env.example .env
+   ```
+   
+   Edit `.env` and add your OpenAI API key:
+   ```
+   OPENAI_API_KEY=your_openai_api_key_here
+   ```
 
-## 🔧 Configuration
+4. **Start development servers**
+   ```bash
+   # Start both frontend and backend
+   npm run dev:full
+   
+   # Or start them separately
+   npm run dev          # Backend only
+   npm run dev:client   # Frontend only
+   ```
 
-### Required API Keys
+5. **Open your browser**
+   - Frontend: http://localhost:3000
+   - Backend API: http://localhost:5000
 
-You'll need to set up these services and add their API keys to your `.env` file:
+## 📋 API Endpoints
 
-- **LiveKit** (Real-time communication): [Get from LiveKit Cloud](https://cloud.livekit.io/)
-- **Deepgram** (Speech-to-text & TTS): [Get from Deepgram](https://deepgram.com/)
-- **OpenRouter** (AI conversation): [Get from OpenRouter](https://openrouter.ai/)
+### Health Check
+- `GET /api/health` - Server status
 
-See `SETUP.md` for detailed setup instructions.
+### Practice Categories
+- `GET /api/categories` - Get all practice categories
+- `GET /api/categories/:id/questions` - Get questions for a category
 
-## 🎯 What Works Without Database
+### Speech Analysis
+- `POST /api/analyze-speech` - Analyze recorded speech
 
-✅ **Core Features Available**:
-- Voice analysis and real-time feedback
-- Eye tracking and face detection
-- AI conversation practice
-- Session recording and metrics
-- Progress tracking (in-memory)
+## 🎯 Usage Guide
 
-✅ **No Database Required**:
-- All data stored in memory during runtime
-- Sessions persist until server restart
-- Perfect for development and testing
+### 1. Select a Practice Category
+Choose from Interview Practice, Elevator Pitch, Presentation Skills, or Networking.
 
-## 🏗️ Architecture Overview
+### 2. Choose a Question
+Browse through relevant questions for your selected category. Each question includes:
+- Audio prompt (simulated for now)
+- Duration limit
+- Helpful tips
 
-### Frontend Components
-- **Voice Analysis**: Real-time speech processing and feedback
-- **Face Detection**: MediaPipe + fallback detector for eye tracking
-- **Practice Sessions**: Multi-modal tracking and feedback
-- **LiveKit Integration**: Real-time AI conversation
+### 3. Practice Session
+1. **Listen to the question** - Click "Play Question" to hear the prompt
+2. **Prepare** - 3-second countdown gives you time to get ready
+3. **Record** - Click "Start Recording" and speak your response
+4. **Stop** - Click "Stop Recording" when finished or when time runs out
 
-### Backend Services
-- **Express Server**: REST API and static file serving
-- **LiveKit Service**: Room management and agent coordination
-- **Python Voice Agent**: AI conversation partner
-- **In-Memory Storage**: Session and progress tracking
+### 4. Review Analysis
+Get instant feedback including:
+- **Transcript** of your speech
+- **Metrics**: filler words, speech rate, pause duration, confidence
+- **AI Feedback**: personalized suggestions for improvement
 
-## Development
+## 🔧 Development
 
-- Frontend code is in the `client/` directory
-- Backend code is in the `server/` directory
-- Shared types and utilities are in the `shared/` directory
-- Python voice agent is in `server/livekit-voice-agent.py`
+### Project Scripts
+```bash
+npm run dev          # Start backend server
+npm run dev:client   # Start frontend dev server
+npm run dev:full     # Start both servers
+npm run build        # Build for production
+npm run start        # Start production server
+npm run check        # TypeScript type checking
+```
 
-## 🐛 Troubleshooting
+### Code Structure
+- **Components**: Reusable UI components in `client/src/components/`
+- **Pages**: Main page components in `client/src/pages/`
+- **API**: Backend endpoints in `server/index.ts`
+- **Services**: Business logic in `server/speech-analysis.ts`
 
-- **Missing API keys**: Check the System Status panel on the dashboard
-- **Camera/Microphone issues**: Ensure browser permissions are granted
-- **Python errors**: Make sure Python 3.11+ is installed and dependencies are installed
-- **LiveKit issues**: See [LIVEKIT_SETUP.md](LIVEKIT_SETUP.md) for detailed troubleshooting
+### Adding New Features
+1. **New Practice Category**: Add to `server/index.ts` categories array
+2. **New Questions**: Add to the questionsByCategory object
+3. **New Analysis Metrics**: Extend the SpeechMetrics interface
+4. **UI Components**: Create in `client/src/components/`
 
-## 📊 System Status
+## 🎨 Customization
 
-The application includes a built-in system status panel that shows:
-- API key configuration status
-- Service connectivity
-- Feature availability
-- Setup requirements
+### Styling
+- Uses Tailwind CSS for styling
+- Custom components in `client/src/components/ui/`
+- Theme can be customized in `tailwind.config.ts`
 
-## Contributing
+### Audio Files
+Currently uses simulated audio. To add real audio files:
+1. Place `.mp3` files in `public/audio/` directory
+2. Update question objects with correct `audioUrl` paths
+3. Implement actual audio playback in `playQuestionAudio` function
 
-1. Create a new branch for your feature
-2. Make your changes
-3. Submit a pull request
+### AI Analysis
+The speech analysis can be customized by modifying:
+- `server/speech-analysis.ts` - Analysis logic
+- Filler word detection patterns
+- Confidence scoring algorithm
+- GPT-4 prompt engineering
 
-## License
+## 🚀 Deployment
 
-[License Type] - See LICENSE file for details
+### Production Build
+```bash
+npm run build
+npm start
+```
+
+### Environment Variables
+Required for production:
+- `OPENAI_API_KEY` - OpenAI API key for speech analysis
+- `NODE_ENV=production` - Production environment
+- `PORT` - Server port (default: 5000)
+
+## 📈 Future Enhancements
+
+### Planned Features
+- [ ] User authentication and session management
+- [ ] Progress tracking and analytics dashboard
+- [ ] Custom practice question creation
+- [ ] Video recording and analysis
+- [ ] Real-time speech coaching
+- [ ] Integration with calendar for practice scheduling
+- [ ] Export practice sessions and feedback
+- [ ] Mobile app version
+
+### Technical Improvements
+- [ ] Database integration for session storage
+- [ ] Real audio file support
+- [ ] Advanced speech analysis algorithms
+- [ ] Performance optimizations
+- [ ] Comprehensive testing suite
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Submit a pull request
+
+## 📄 License
+
+MIT License - see LICENSE file for details
+
+## 🆘 Support
+
+For issues and questions:
+1. Check the existing issues
+2. Create a new issue with detailed description
+3. Include steps to reproduce the problem
+
+---
+
+**Built with ❤️ for helping people build confidence in public speaking**

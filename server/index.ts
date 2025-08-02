@@ -1,8 +1,9 @@
 import 'dotenv/config';
 import express, { type Request, Response, NextFunction } from "express";
-import router from "./routes";
-import { setupVite, serveStatic, log } from "./vite";
 import { createServer } from "http";
+import path from "path";
+import { fileURLToPath } from "url";
+import { SpeechAnalysisService } from "./speech-analysis";
 
 // Set NODE_ENV if not already set
 if (!process.env.NODE_ENV) {
@@ -11,11 +12,7 @@ if (!process.env.NODE_ENV) {
 
 // Check for required environment variables
 const requiredEnvVars = [
-  'LIVEKIT_URL',
-  'LIVEKIT_API_KEY', 
-  'LIVEKIT_API_SECRET',
-  'DEEPGRAM_API_KEY',
-  'OPENROUTER_API_KEY'
+  'OPENAI_API_KEY', // For transcription and analysis
 ];
 
 const missingVars = requiredEnvVars.filter(varName => !process.env[varName]);
@@ -23,14 +20,15 @@ const missingVars = requiredEnvVars.filter(varName => !process.env[varName]);
 if (missingVars.length > 0) {
   console.warn('⚠️  Missing required environment variables:');
   missingVars.forEach(varName => console.warn(`   - ${varName}`));
-  console.warn('\n📝 Please create a .env file with these variables. See SETUP.md for details.');
+  console.warn('\n📝 Please create a .env file with these variables. See SETUP_SIMPLE.md for details.');
   console.warn('🚀 The app will still start, but some features may not work properly.\n');
 }
 
 const app = express();
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: false }));
 
+// Middleware for logging
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
@@ -54,62 +52,221 @@ app.use((req, res, next) => {
         logLine = logLine.slice(0, 79) + "…";
       }
 
-      log(logLine);
+      console.log(logLine);
     }
   });
 
   next();
 });
 
-(async () => {
-  // Create HTTP server
-  const server = createServer(app);
-  
-  // Apply routes
-  app.use(router);
+// API Routes
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', message: 'Speech Practice API is running' });
+});
 
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
-
-    res.status(status).json({ message });
-    console.error('Server error:', err);
-  });
-
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
-  if (process.env.NODE_ENV === "development") {
-    await setupVite(app, server);
-  } else {
-    serveStatic(app);
-  }
-
-  // ALWAYS serve the app on port 5000
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
-  const port = 5000;
-  server.listen({
-    port,
-    host: "localhost",
-  }, () => {
-    log(`🚀 Confidence Compass server running on port ${port}`);
-    log(`📱 Open http://localhost:${port} in your browser`);
-    log(`🌍 Environment: ${process.env.NODE_ENV}`);
-    
-    if (missingVars.length > 0) {
-      log(`⚠️  Missing environment variables: ${missingVars.join(', ')}`);
+// Get practice categories
+app.get('/api/categories', (req, res) => {
+  const categories = [
+    {
+      id: 'interview',
+      name: 'Interview Practice',
+      description: 'Common interview questions and scenarios',
+      icon: '🎯'
+    },
+    {
+      id: 'elevator-pitch',
+      name: 'Elevator Pitch',
+      description: 'Perfect your 30-second introduction',
+      icon: '🚀'
+    },
+    {
+      id: 'presentation',
+      name: 'Presentation Skills',
+      description: 'Public speaking and presentation practice',
+      icon: '🎤'
+    },
+    {
+      id: 'networking',
+      name: 'Networking',
+      description: 'Conversation starters and networking tips',
+      icon: '🤝'
     }
-  });
+  ];
+  
+  res.json(categories);
+});
 
-  // Graceful shutdown
-  process.on('SIGINT', async () => {
-    log('🛑 Shutting down server...');
-    process.exit(0);
-  });
+// Get questions for a category
+app.get('/api/categories/:categoryId/questions', (req, res) => {
+  const { categoryId } = req.params;
+  
+  const questionsByCategory = {
+    interview: [
+      {
+        id: 'tell-me-about-yourself',
+        question: 'Tell me about yourself',
+        audioUrl: '/audio/interview/tell-me-about-yourself.mp3',
+        duration: 120, // 2 minutes
+        tips: 'Focus on relevant experience and achievements'
+      },
+      {
+        id: 'why-should-we-hire-you',
+        question: 'Why should we hire you?',
+        audioUrl: '/audio/interview/why-should-we-hire-you.mp3',
+        duration: 90, // 1.5 minutes
+        tips: 'Highlight unique value and specific examples'
+      },
+      {
+        id: 'biggest-weakness',
+        question: 'What is your biggest weakness?',
+        audioUrl: '/audio/interview/biggest-weakness.mp3',
+        duration: 90,
+        tips: 'Show self-awareness and growth mindset'
+      },
+      {
+        id: 'where-do-you-see-yourself',
+        question: 'Where do you see yourself in 5 years?',
+        audioUrl: '/audio/interview/where-do-you-see-yourself.mp3',
+        duration: 90,
+        tips: 'Align with company goals and show ambition'
+      }
+    ],
+    'elevator-pitch': [
+      {
+        id: 'personal-intro',
+        question: 'Introduce yourself professionally',
+        audioUrl: '/audio/elevator-pitch/personal-intro.mp3',
+        duration: 30, // 30 seconds
+        tips: 'Include name, role, and key value proposition'
+      },
+      {
+        id: 'value-proposition',
+        question: 'What value do you bring?',
+        audioUrl: '/audio/elevator-pitch/value-proposition.mp3',
+        duration: 30,
+        tips: 'Focus on benefits, not just features'
+      },
+      {
+        id: 'call-to-action',
+        question: 'End with a clear call to action',
+        audioUrl: '/audio/elevator-pitch/call-to-action.mp3',
+        duration: 30,
+        tips: 'Make it easy for them to take next step'
+      }
+    ],
+    presentation: [
+      {
+        id: 'opening-hook',
+        question: 'Start with an engaging opening',
+        audioUrl: '/audio/presentation/opening-hook.mp3',
+        duration: 60,
+        tips: 'Use a story, question, or surprising fact'
+      },
+      {
+        id: 'key-points',
+        question: 'Present your main points clearly',
+        audioUrl: '/audio/presentation/key-points.mp3',
+        duration: 120,
+        tips: 'Use clear structure and transitions'
+      },
+      {
+        id: 'strong-closing',
+        question: 'End with impact',
+        audioUrl: '/audio/presentation/strong-closing.mp3',
+        duration: 60,
+        tips: 'Summarize key takeaways and next steps'
+      }
+    ],
+    networking: [
+      {
+        id: 'ice-breaker',
+        question: 'Break the ice naturally',
+        audioUrl: '/audio/networking/ice-breaker.mp3',
+        duration: 60,
+        tips: 'Find common ground or ask about their work'
+      },
+      {
+        id: 'show-interest',
+        question: 'Show genuine interest in their work',
+        audioUrl: '/audio/networking/show-interest.mp3',
+        duration: 90,
+        tips: 'Ask thoughtful questions about their role'
+      },
+      {
+        id: 'share-value',
+        question: 'Share how you can help them',
+        audioUrl: '/audio/networking/share-value.mp3',
+        duration: 90,
+        tips: 'Offer specific ways you can be valuable'
+      }
+    ]
+  };
+  
+  const questions = questionsByCategory[categoryId as keyof typeof questionsByCategory] || [];
+  res.json(questions);
+});
 
-  process.on('SIGTERM', async () => {
-    log('🛑 Shutting down server...');
-    process.exit(0);
+// Analyze speech recording
+app.post('/api/analyze-speech', async (req, res) => {
+  try {
+    const { audioData, questionId, categoryId } = req.body;
+    
+    if (!audioData) {
+      return res.status(400).json({ error: 'Audio data is required' });
+    }
+    
+    // Use the speech analysis service
+    const analysis = await SpeechAnalysisService.analyzeSpeech(audioData, questionId, categoryId);
+    
+    res.json(analysis);
+  } catch (error) {
+    console.error('Error analyzing speech:', error);
+    res.status(500).json({ error: 'Failed to analyze speech' });
+  }
+});
+
+// Serve static files in production
+if (process.env.NODE_ENV === 'production') {
+  app.use(express.static(path.join(process.cwd(), 'dist')));
+  
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(process.cwd(), 'dist', 'index.html'));
   });
-})();
+}
+
+// Error handling middleware
+app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+  const status = err.status || err.statusCode || 500;
+  const message = err.message || "Internal Server Error";
+
+  res.status(status).json({ message });
+  console.error('Server error:', err);
+});
+
+// Start server
+const server = createServer(app);
+const port = process.env.PORT || 5000;
+
+server.listen({
+  port,
+  host: "localhost",
+}, () => {
+  console.log(`🚀 Speech Practice server running on port ${port}`);
+  console.log(`📱 Open http://localhost:${port} in your browser`);
+  console.log(`🌍 Environment: ${process.env.NODE_ENV}`);
+  
+  if (missingVars.length > 0) {
+    console.log(`⚠️  Missing environment variables: ${missingVars.join(', ')}`);
+  }
+});
+
+// Graceful shutdown
+process.on('SIGINT', async () => {
+  console.log('🛑 Shutting down server...');
+  process.exit(0);
+});
+
+process.on('SIGTERM', async () => {
+  console.log('🛑 Shutting down server...');
+  process.exit(0);
+}); 

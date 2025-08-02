@@ -4,8 +4,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "./components/ui/toaster";
 import { TooltipProvider } from "./components/ui/tooltip";
 import { Sidebar } from "./components/layout/sidebar";
-import Dashboard from "./pages/dashboard";
-import AIConversation from "./pages/ai-conversation";
+import DashboardSimple from "./pages/dashboard-simple";
 import SessionHistory from "./pages/session-history";
 import Settings from "./pages/settings";
 
@@ -15,8 +14,7 @@ function Router() {
       <Sidebar />
       <main className="flex-1 overflow-auto p-4 md:p-6">
         <Switch>
-          <Route path="/" component={Dashboard} />
-          <Route path="/ai-conversation" component={AIConversation} />
+          <Route path="/" component={DashboardSimple} />
           <Route path="/history" component={SessionHistory} />
           <Route path="/settings" component={Settings} />
           <Route>

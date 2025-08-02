@@ -1,21 +1,41 @@
-import { pgTable, text, serial, integer, timestamp } from "drizzle-orm/pg-core";
-import { createInsertSchema } from "drizzle-zod";
-import { z } from "zod";
+// Speech practice types
+export interface PracticeCategory {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+}
 
-export const users = pgTable("users", {
-  id: serial("id").primaryKey(),
-  username: text("username").notNull().unique(),
-  email: text("email").notNull().unique(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+export interface PracticeQuestion {
+  id: string;
+  question: string;
+  audioUrl: string;
+  duration: number;
+  tips: string;
+  categoryId: string;
+}
 
-export const insertUserSchema = createInsertSchema(users).omit({
-  id: true,
-  createdAt: true,
-});
+export interface SpeechAnalysis {
+  transcript: string;
+  metrics: {
+    fillerWords: number;
+    speechRate: number;
+    pauseDuration: number;
+    confidence: number;
+  };
+  feedback: {
+    summary: string;
+    suggestions: string[];
+  };
+}
 
-export type InsertUser = z.infer<typeof insertUserSchema>;
-export type User = typeof users.$inferSelect;
+export interface PracticeSession {
+  id: string;
+  categoryId: string;
+  questionId: string;
+  analysis: SpeechAnalysis;
+  createdAt: Date;
+}
 
 // Voice analysis types
 export interface VoiceMetric {
@@ -24,20 +44,4 @@ export interface VoiceMetric {
   clarity: number;
   pace: number;
   timestamp: number;
-}
-
-// LiveKit conversation types
-export interface ConversationTopic {
-  id: string;
-  title: string;
-  description: string;
-  difficulty: 'beginner' | 'intermediate' | 'advanced';
-  category: string;
-  prompt: string;
-}
-
-export interface LiveKitSession {
-  roomName: string;
-  token: string;
-  topic: ConversationTopic;
 }

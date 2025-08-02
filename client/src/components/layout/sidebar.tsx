@@ -5,8 +5,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 
 const navigation = [
-  { name: "Dashboard", href: "/", icon: BarChart3 },
-  { name: "AI Conversation", href: "/ai-conversation", icon: MessageCircle },
+  { name: "Speech Practice", href: "/", icon: BarChart3 },
   { name: "Session History", href: "/history", icon: History },
   { name: "Settings", href: "/settings", icon: Settings },
 ];
@@ -55,8 +54,8 @@ export function Sidebar() {
               <Eye className="h-6 w-6 text-white" />
             </div>
             <div>
-              <h1 className="font-bold text-lg text-gray-900">ConfidenceBuilder</h1>
-              <p className="text-sm text-gray-500">Communication Practice</p>
+              <h1 className="font-bold text-lg text-gray-900">SpeechPractice</h1>
+              <p className="text-sm text-gray-500">AI-Powered Speaking Coach</p>
             </div>
           </div>
         </div>
