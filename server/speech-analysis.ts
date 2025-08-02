@@ -149,23 +149,23 @@ Focus on practical advice that can be implemented immediately. Be encouraging bu
 
       // Try OpenAI first
       try {
-        const completion = await openai.chat.completions.create({
-          model: "gpt-4",
-          messages: [
-            {
-              role: "system",
-              content: "You are an expert speech coach providing constructive feedback. Be encouraging but honest. Focus on actionable advice."
-            },
-            {
-              role: "user",
-              content: prompt
-            }
-          ],
-          max_tokens: 300,
-          temperature: 0.7
-        });
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4",
+        messages: [
+          {
+            role: "system",
+            content: "You are an expert speech coach providing constructive feedback. Be encouraging but honest. Focus on actionable advice."
+          },
+          {
+            role: "user",
+            content: prompt
+          }
+        ],
+        max_tokens: 300,
+        temperature: 0.7
+      });
 
-        const response = completion.choices[0]?.message?.content || '';
+      const response = completion.choices[0]?.message?.content || '';
         return this.parseFeedbackResponse(response);
       } catch (openaiError) {
         console.log('OpenAI failed, trying OpenRouter fallback...');
@@ -210,31 +210,31 @@ Focus on practical advice that can be implemented immediately. Be encouraging bu
    * Parse the AI response into structured feedback
    */
   private static parseFeedbackResponse(response: string): SpeechFeedback {
-    const lines = response.split('\n').filter(line => line.trim());
-    const summary = lines[0] || "Good effort! Here are some areas for improvement.";
-    const suggestions = lines.slice(1).filter(line => line.trim().length > 0).slice(0, 3);
-    
-    return {
-      summary,
-      suggestions: suggestions.length > 0 ? suggestions : [
-        "Practice speaking more slowly and clearly",
-        "Try to reduce filler words like 'um' and 'like'",
-        "Add more pauses between key points for emphasis"
-      ]
-    };
+      const lines = response.split('\n').filter(line => line.trim());
+      const summary = lines[0] || "Good effort! Here are some areas for improvement.";
+      const suggestions = lines.slice(1).filter(line => line.trim().length > 0).slice(0, 3);
+      
+      return {
+        summary,
+        suggestions: suggestions.length > 0 ? suggestions : [
+          "Practice speaking more slowly and clearly",
+          "Try to reduce filler words like 'um' and 'like'",
+          "Add more pauses between key points for emphasis"
+        ]
+      };
   }
 
   /**
    * Get default feedback when AI services are unavailable
    */
   private static getDefaultFeedback(): SpeechFeedback {
-    return {
-      summary: "Good effort! Here are some general tips for improvement.",
-      suggestions: [
-        "Practice speaking more slowly and clearly",
-        "Try to reduce filler words like 'um' and 'like'",
-        "Add more pauses between key points for emphasis"
-      ]
-    };
+      return {
+        summary: "Good effort! Here are some general tips for improvement.",
+        suggestions: [
+          "Practice speaking more slowly and clearly",
+          "Try to reduce filler words like 'um' and 'like'",
+          "Add more pauses between key points for emphasis"
+        ]
+      };
   }
 } 

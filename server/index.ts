@@ -31,13 +31,50 @@ const app = express();
 const corsOptions = {
   origin: process.env.NODE_ENV === 'production' 
     ? ['https://yourdomain.com'] // Replace with your domain
-    : ['http://localhost:3000', 'http://localhost:5000', 'http://127.0.0.1:3000'],
+    : [
+        'http://localhost:3000', 
+        'http://localhost:5000', 
+        'http://127.0.0.1:3000',
+        'https://*.app.github.dev', // GitHub Codespaces
+        'https://*.github.dev'      // GitHub Codespaces alternative
+      ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 };
 
 app.use(cors(corsOptions));
+
+// Content Security Policy middleware
+app.use((req, res, next) => {
+  // Set CSP headers for GitHub Codespaces compatibility
+  res.setHeader(
+    'Content-Security-Policy',
+    [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+      "style-src 'self' 'unsafe-inline'",
+      "img-src 'self' data: https:",
+      "font-src 'self' data:",
+      "connect-src 'self' ws: wss:",
+      "media-src 'self' blob:",
+      "object-src 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+      "frame-ancestors 'self'",
+      "upgrade-insecure-requests"
+    ].join('; ')
+  );
+  
+  // Additional security headers
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  
+  next();
+});
+
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: false }));
 
@@ -74,7 +111,12 @@ app.use((req, res, next) => {
 
 // API Routes
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', message: 'Speech Practice API is running' });
+  res.json({ 
+    status: 'ok', 
+    message: 'Speech Practice API is running',
+    environment: process.env.NODE_ENV,
+    timestamp: new Date().toISOString()
+  });
 });
 
 // Get practice categories
